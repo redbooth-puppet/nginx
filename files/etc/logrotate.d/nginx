@@ -1,0 +1,30 @@
+/var/log/nginx/*.log {
+ daily
+ dateext
+ missingok
+ rotate 5
+ compress
+ delaycompress
+ notifempty
+ create 0644 www-data adm
+ sharedscripts
+ prerotate
+  if [ -d /etc/logrotate.d/httpd-prerotate ]; then \
+   run-parts /etc/logrotate.d/httpd-prerotate; \
+  fi; \
+ endscript
+ postrotate
+  # Let nginx to reopen the log file
+  [ ! -f /var/run/nginx.pid ] || kill -USR1 `cat /var/run/nginx.pid`
+
+  # In case rsyslog is using imfile to send our logs
+  # we make him forget there was a file (we moved it)
+  RSYSLOGGED=0
+  for i in /var/spool/rsyslog/nginx-*; do
+    rm $i
+    RSYSLOGGED=1
+  done
+  [ $RSYSLOGGED = 1 ] && kill -HUP `cat /var/run/rsyslogd.pid`
+
+ endscript
+}

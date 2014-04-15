@@ -1,0 +1,87 @@
+user <%=  scope.lookupvar('nginx::user') %>;
+worker_processes <%= scope.lookupvar('nginx::worker_processes') %>;
+worker_rlimit_nofile <%= scope.lookupvar('nginx::worker_rlimit_nofile') %>;
+pid /var/run/nginx.pid;
+
+events {
+  worker_connections <%= scope.lookupvar('nginx::worker_connections') %>;
+}
+
+http {
+
+  ##
+  # Basic Settings
+  ##
+
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout 0;
+  types_hash_max_size 2048;
+  variables_hash_max_size 1024; # Needed to use some custom vars
+
+  server_tokens off;
+
+  server_names_hash_bucket_size 128;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  ##
+  # Logging Settings
+  ##
+
+  access_log <%= scope.lookupvar('nginx::access_log_path') %>;
+  error_log <%= scope.lookupvar('nginx::error_log_path') %>;
+
+  <% if resolvers = scope.lookupvar('nginx::resolvers') %>
+  ##
+  # Resolver Settings
+  ##
+    <% result = resolvers.map { |i| scope.function_real_ip([i,'public']) } + ['8.8.8.4','8.8.8.8'] %>
+  resolver <%= result.join(' ') %>;
+  <% end %>
+
+  ##
+  # Gzip Settings
+  ##
+
+  gzip on;
+  gzip_disable "msie6";
+
+  gzip_vary on;
+  gzip_proxied any;
+  gzip_comp_level 6;
+  gzip_buffers 16 8k;
+  gzip_http_version 1.1;
+  gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript application/javascript;
+
+  ##
+  # Custom logging
+  ##
+
+  log_format main '$remote_addr - $remote_user [$time_local]  $status '
+    '"$request" $body_bytes_sent "$http_referer" '
+    '"$http_user_agent" "$http_x_forwarded_for"';
+
+  ##
+  # Virtual Host Configs
+  ##
+
+  include /etc/nginx/conf.d/*.conf;
+  include /etc/nginx/sites-enabled/*;
+
+  ##
+  # Without this connection was dropped and we got partial content of
+  # API responses. (http://forum.nginx.org/read.php?2,198982,199174)
+  ##
+
+  proxy_buffering off;
+
+  ##
+  # If-Modified-Since was being ignored if the Last Modification Time wasn't exact,
+  # with this, time comparison is done
+
+  if_modified_since  before;
+
+}
