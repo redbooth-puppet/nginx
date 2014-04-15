@@ -1,0 +1,4 @@
+nginx
+=====
+
+Nginx puppet module
